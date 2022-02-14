@@ -1,13 +1,17 @@
 ﻿using System;
+using System.Collections;
 using System.IO;
 
 namespace OS_Practice_1
 {
     class Program
     {
+        const int INFOTEXT_HEIGHT = 13;
+
         static int unit = 0;
         static string[] units = new string[] {" Б ", " КБ", " МБ", " ГБ", " ТБ"};
         static int choosen_pos = 0;
+        static int pages = 1;
 
         static DriveInfo[] drives;
         static string[] folders;
@@ -15,6 +19,7 @@ namespace OS_Practice_1
 
 
         static DirectoryInfo ddd;
+        static Stack poses = new Stack();
         static int[] MAX_LENGTH = new int[8];
         static string path = "";
 
@@ -63,27 +68,18 @@ namespace OS_Practice_1
                         MAX_LENGTH[5] = item.DriveType.ToString().Length;
             }
         }
-        static void OS_GetFoldersAndFiles()
+        static void OS_FoldersAndFilesInfo()
         {
             folders = Directory.GetDirectories(path);
             files = Directory.GetFiles(path);
-            MAX_LENGTH[0] = 3;
-            MAX_LENGTH[1] = 3;
-            MAX_LENGTH[2] = 6;
-            MAX_LENGTH[3] = 11;
-            MAX_LENGTH[4] = 10;
-            MAX_LENGTH[5] = 9;
-            foreach (string item in folders)
-            {
-                DirectoryInfo temp = new DirectoryInfo(item);
-                if (temp.Name.Length > MAX_LENGTH[0])
-                    MAX_LENGTH[0] = temp.Name.Length;
-            }
-            foreach (string item in files)
-            {
-                if (item.Split('\\')[item.Split('\\').Length - 1].Length > MAX_LENGTH[0])
-                    MAX_LENGTH[0] = item.Split('\\')[item.Split('\\').Length - 1].Length;
-            }
+            //MAX_LENGTH[0] = 3;
+            //MAX_LENGTH[1] = 3;
+            //MAX_LENGTH[2] = 6;
+            //MAX_LENGTH[3] = 11;
+            //MAX_LENGTH[4] = 10;
+            //MAX_LENGTH[5] = 9;
+            pages = (int)Math.Ceiling(((float)(folders.Length + files.Length) / (float)(Console.WindowHeight - INFOTEXT_HEIGHT)));
+            
         }
 
         static void OS_DrawDisks()
@@ -131,33 +127,135 @@ namespace OS_Practice_1
             //Console.WriteLine("  f - создать файл");
         }
 
-        static void OS_DrawInside()
+        static string OS_DrawNewFolder()
+        {
+            string name;
+            bool repeating = false;
+            do
+            {
+                repeating = false;
+                Console.Clear();
+                Console.WriteLine("\n\n Создать папку в директории");
+                Console.WriteLine(path);
+                Console.Write("\n  Введите имя папки > ");
+                name = Console.ReadLine();
+                DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
+                if (directoryInfo.Exists)
+                {
+                    for (int i = 0; i < 22; i++)
+                        Console.Write(" ");
+                    for (int i = 0; i < name.Length; i++)
+                        Console.Write("~");
+                    Console.WriteLine();
+                    Console.WriteLine("Ошибка: такая папка уже есть в этой директории");
+                    Console.WriteLine("Повторить ввод? y - да/n - нет > ");
+                    ConsoleKey key = Console.ReadKey().Key;
+                    if (key == ConsoleKey.Y) repeating = true;
+                    else repeating = false;
+                }
+            }
+            while (repeating);
+            return path + "\\" + name;
+        }
+
+        static string OS_DrawDeleteFolder(string d_name)
+        {
+            string name;
+            bool repeating = false;
+            do
+            {
+                repeating = false;
+                Console.Clear();
+                Console.WriteLine("\n\n Удалить папку");
+                Console.WriteLine(path + d_name);
+                Console.Write("\n  Вы действительно хотите удалить эту папку? > ");
+                name = Console.ReadLine();
+                DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
+                if (directoryInfo.Exists)
+                {
+                    for (int i = 0; i < 22; i++)
+                        Console.Write(" ");
+                    for (int i = 0; i < name.Length; i++)
+                        Console.Write("~");
+                    Console.WriteLine();
+                    Console.WriteLine("Ошибка: такая папка уже есть в этой директории");
+                    Console.WriteLine("Повторить ввод? y - да/n - нет > ");
+                    ConsoleKey key = Console.ReadKey().Key;
+                    if (key == ConsoleKey.Y) repeating = true;
+                    else repeating = false;
+                }
+            }
+            while (repeating);
+            return path + "\\" + name;
+        }
+
+        static void OS_CreateFolder()
+        {
+            DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawNewFolder());
+            directoryInfo.Create();
+        }
+
+        static void OS_DeleteFolder()
+        {
+            DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawDeleteFolder("р"));
+            directoryInfo.Create();
+        }
+
+        static void OS_DrawFoldersAndFiles()
         {
             Console.Clear();
             Console.Write("\n\n ");
             Console.WriteLine(path);
-            Console.Write("  Имя"); Gaps(MAX_LENGTH[0], 3);
+            Console.Write("\n  Имя");
             //Console.Write("Имя"); Gaps(MAX_LENGTH[1], 3);
             //Console.Write("Размер"); Gaps(MAX_LENGTH[2], 6);
             //Console.Write("Своб. место"); Gaps(MAX_LENGTH[3], 11);
             //Console.Write("Ф. система"); Gaps(MAX_LENGTH[4], 10);
             //Console.Write("Тип диска"); Gaps(MAX_LENGTH[5], 11);
-            //Console.WriteLine();
-            for (int i = 0; i < folders.Length; i++)
+            Console.WriteLine();
+            if (folders.Length + files.Length == 0)
             {
-                if (i == (choosen_pos % folders.Length))
-                    Console.Write("> ");
-                else
-                    Console.Write("  ");
-                Console.Write(folders[i].Split('\\')[folders[i].Split('\\').Length - 1]);
-                Gaps(MAX_LENGTH[0], folders[i].Length);
-                Console.WriteLine();
+                Console.WriteLine("  Эта папка пуста");
+            }
+            else
+            {
+                choosen_pos %= (folders.Length + files.Length);
+                if (choosen_pos < 0) choosen_pos = 0;
+                int cur_page = choosen_pos / (Console.WindowHeight - INFOTEXT_HEIGHT);
+                for (int i = cur_page * (Console.WindowHeight - INFOTEXT_HEIGHT); i < (cur_page + 1) * (Console.WindowHeight - INFOTEXT_HEIGHT); i++)
+                {
+                    if (i < folders.Length)
+                    {
+                        DirectoryInfo temp = new DirectoryInfo(folders[i]);
+
+                        if (i == (choosen_pos % (folders.Length + files.Length)))
+                            Console.Write("> ");
+                        else
+                            Console.Write("  ");
+                        Console.Write(temp.Name);
+                        //Gaps(MAX_LENGTH[0], temp.Name.Length);
+                        Console.WriteLine();
+                    }
+                    else if (i < (folders.Length + files.Length))
+                    {
+                        FileInfo temp = new FileInfo(files[i - folders.Length]);
+
+                        if (i == (choosen_pos % (folders.Length + files.Length)))
+                            Console.Write("> ");
+                        else
+                            Console.Write("  ");
+                        Console.Write(temp.Name + "  /  " + (int)(temp.Length / Math.Pow(1024, unit)) + units[unit]);
+                        //Gaps(MAX_LENGTH[0], temp.Name.Length);
+                        Console.WriteLine();
+                    }
+                }
+                Console.WriteLine("  .... стр " + (cur_page + 1) + " из " + pages + " ....");
             }
             Console.WriteLine("  ______________");
             Console.WriteLine("  Управление - стрелками");
             Console.WriteLine("  Ед. измерения: b, k, m, g, t");
-            Console.WriteLine("  u - обновить, Enter - выбрать");
-            //Console.WriteLine("  f - создать файл");
+            Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить");
+            Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML  z - архив");
         }
 
         static int Control()
@@ -170,6 +268,14 @@ namespace OS_Practice_1
                     break;
                 case ConsoleKey.DownArrow:
                     choosen_pos++;
+                    break;
+                case ConsoleKey.RightArrow:
+                    choosen_pos += (Console.WindowHeight - 13);
+                    if (choosen_pos >= folders.Length + files.Length) choosen_pos = folders.Length + files.Length - 1;
+                    break;
+                case ConsoleKey.LeftArrow:
+                    choosen_pos -= (Console.WindowHeight - 13);
+                    if (choosen_pos < 0) choosen_pos = 0;
                     break;
                 case ConsoleKey.B:
                     unit = 0;
@@ -194,11 +300,29 @@ namespace OS_Practice_1
                 case ConsoleKey.U:
                     OS_DisksInfo();
                     break;
+                case ConsoleKey.D:
+                    OS_CreateFolder();
+                    OS_FoldersAndFilesInfo();
+                    break;
+                case ConsoleKey.Backspace:
+                    if (Directory.GetParent(path) == null)
+                        path = "";
+                    else
+                        path = Directory.GetParent(path).ToString();
+                    if (path == "")
+                        OS_DisksInfo();
+                    else
+                        OS_FoldersAndFilesInfo();
+                    choosen_pos = (int)poses.Pop();
+                    break;
                 case ConsoleKey.Enter:
-                    choosen_pos = 0;
                     if (path == "")
                         path = drives[choosen_pos].Name;
-                    OS_GetFoldersAndFiles();
+                    else if (choosen_pos < folders.Length) 
+                        path = folders[choosen_pos];
+                    poses.Push(choosen_pos);
+                    choosen_pos = 0;
+                    OS_FoldersAndFilesInfo();
                     //OS_DrawInside();
                     break;
             }
@@ -215,16 +339,10 @@ namespace OS_Practice_1
                 if (path == "")
                     OS_DrawDisks();
                 else
-                    OS_DrawInside();
+                    OS_DrawFoldersAndFiles();
                 cur_position = Control();
             }
             while (true);
-
-
-            if (Console.ReadKey().Key == ConsoleKey.UpArrow)
-            {
-                Console.WriteLine("ВВерх");
-            }
         }
     }
 }
