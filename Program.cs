@@ -7,6 +7,11 @@ namespace OS_Practice_1
     class Program
     {
         const int INFOTEXT_HEIGHT = 13;
+        enum OS_objs
+        {
+            OS_folder = 1,
+            OS_file = 2
+        }
 
         static int unit = 0;
         static string[] units = new string[] {" Б ", " КБ", " МБ", " ГБ", " ТБ"};
@@ -158,35 +163,39 @@ namespace OS_Practice_1
             return path + "\\" + name;
         }
 
-        static string OS_DrawDeleteFolder(string d_name)
+        static bool OS_DrawDeleteObject(OS_objs t)
         {
-            string name;
-            bool repeating = false;
             do
             {
-                repeating = false;
                 Console.Clear();
-                Console.WriteLine("\n\n Удалить папку");
-                Console.WriteLine(path + d_name);
-                Console.Write("\n  Вы действительно хотите удалить эту папку? > ");
-                name = Console.ReadLine();
-                DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
-                if (directoryInfo.Exists)
+                Console.Write("\n\n Удалить ");
+                switch (t)
                 {
-                    for (int i = 0; i < 22; i++)
-                        Console.Write(" ");
-                    for (int i = 0; i < name.Length; i++)
-                        Console.Write("~");
-                    Console.WriteLine();
-                    Console.WriteLine("Ошибка: такая папка уже есть в этой директории");
-                    Console.WriteLine("Повторить ввод? y - да/n - нет > ");
-                    ConsoleKey key = Console.ReadKey().Key;
-                    if (key == ConsoleKey.Y) repeating = true;
-                    else repeating = false;
+                    case OS_objs.OS_folder:
+                        Console.WriteLine("папку");
+                        Console.WriteLine("  " + folders[choosen_pos]);
+                        Console.Write("\n  Вы действительно хотите удалить эту папку? > ");
+                        break;
+                    case OS_objs.OS_file:
+                        Console.WriteLine("файл");
+                        Console.WriteLine("  " + files[choosen_pos - folders.Length]);
+                        Console.Write("\n  Вы действительно хотите удалить этот файл? > ");
+                        break;
+                }
+                Console.WriteLine("y - да/n - нет > ");
+                ConsoleKey key = Console.ReadKey().Key;
+                switch (key)
+                {
+                    case ConsoleKey.N:
+                        return false;
+                    case ConsoleKey.Y:
+                        return true;
+                    default:
+                        //Console.WriteLine("Повторите ввод.\ny - да/n - нет > ");
+                        break;
                 }
             }
-            while (repeating);
-            return path + "\\" + name;
+            while (true);
         }
 
         static void OS_CreateFolder()
@@ -195,10 +204,24 @@ namespace OS_Practice_1
             directoryInfo.Create();
         }
 
-        static void OS_DeleteFolder()
+        static void OS_DeleteObject()
         {
-            DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawDeleteFolder("р"));
-            directoryInfo.Create();
+            OS_objs objs;
+            if (choosen_pos < folders.Length) objs = OS_objs.OS_folder;
+            else objs = OS_objs.OS_file;
+            if (OS_DrawDeleteObject(objs))
+            {
+                if (objs == OS_objs.OS_folder) {
+                    DirectoryInfo directoryInfo = new DirectoryInfo(folders[choosen_pos]);
+                    directoryInfo.Delete(true);
+                } 
+                else
+                {
+                    FileInfo fileInfo = new FileInfo(path + "\\" + files[choosen_pos - folders.Length]);
+                    fileInfo.Delete();
+                }
+            }
+            
         }
 
         static void OS_DrawFoldersAndFiles()
@@ -244,9 +267,9 @@ namespace OS_Practice_1
                             Console.Write("> ");
                         else
                             Console.Write("  ");
-                        Console.Write(temp.Name + "  /  " + (int)(temp.Length / Math.Pow(1024, unit)) + units[unit]);
+                        Console.WriteLine(temp.Name + " (файл " + temp.Extension + ")");
                         //Gaps(MAX_LENGTH[0], temp.Name.Length);
-                        Console.WriteLine();
+                        //Console.WriteLine();
                     }
                 }
                 Console.WriteLine("  .... стр " + (cur_page + 1) + " из " + pages + " ....");
@@ -254,7 +277,7 @@ namespace OS_Practice_1
             Console.WriteLine("  ______________");
             Console.WriteLine("  Управление - стрелками");
             Console.WriteLine("  Ед. измерения: b, k, m, g, t");
-            Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить");
+            Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить  i - инфо");
             Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML  z - архив");
         }
 
@@ -302,6 +325,11 @@ namespace OS_Practice_1
                     break;
                 case ConsoleKey.D:
                     OS_CreateFolder();
+                    OS_FoldersAndFilesInfo();
+                    break;
+                case ConsoleKey.Delete:
+                    OS_DeleteObject();
+                    choosen_pos = 0;
                     OS_FoldersAndFilesInfo();
                     break;
                 case ConsoleKey.Backspace:
