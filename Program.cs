@@ -23,25 +23,9 @@ namespace OS_Practice_1
         static string[] files;
 
 
-        static DirectoryInfo ddd;
         static Stack poses = new Stack();
         static int[] MAX_LENGTH = new int[8];
         static string path = "";
-
-        static void About()
-        {
-            Console.WriteLine("Дисциплина: Операционные системы");
-            Console.WriteLine("Практика №1");
-            Console.WriteLine("Выполнил:\n\tстудент группы БББО-05-20\n\tБалабанов Дмитрий");
-            for (int i = 0; i < 20; i++) Console.Write("=");
-            Console.WriteLine();
-        }
-
-        static void GapAbove()
-        {
-            for (int i = 0; i < 3; i++)
-                Console.WriteLine();
-        }
 
         static void Gaps(int max, int cur)
         {
@@ -224,7 +208,7 @@ namespace OS_Practice_1
             
         }
 
-        static void OS_DrawFoldersAndFiles()
+        static void OS_DrawFoldersAndFiles(bool info)
         {
             Console.Clear();
             Console.Write("\n\n ");
@@ -275,10 +259,29 @@ namespace OS_Practice_1
                 Console.WriteLine("  .... стр " + (cur_page + 1) + " из " + pages + " ....");
             }
             Console.WriteLine("  ______________");
-            Console.WriteLine("  Управление - стрелками");
-            Console.WriteLine("  Ед. измерения: b, k, m, g, t");
-            Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить  i - инфо");
-            Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML  z - архив");
+            if (info)
+            {
+                if (choosen_pos < folders.Length)
+                {
+                    DirectoryInfo temp = new DirectoryInfo(folders[choosen_pos]);
+                    //Console.WriteLine("  Размер: " + temp.Attributes + " байт");
+                    Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
+                    Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться");
+                } else
+                {
+                    FileInfo temp = new FileInfo(files[choosen_pos - folders.Length]);
+                    Console.WriteLine("  Размер: " + temp.Length + " байт");
+                    Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
+                    Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться");
+                }
+            }
+            else
+            {
+                Console.WriteLine("  Управление - стрелками");
+                Console.WriteLine("  Ед. измерения: b, k, m, g, t");
+                Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить  i - инфо");
+                Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML  z - архив");
+            }
         }
 
         static int Control()
@@ -332,6 +335,10 @@ namespace OS_Practice_1
                     choosen_pos = 0;
                     OS_FoldersAndFilesInfo();
                     break;
+                case ConsoleKey.I:
+                    OS_DrawFoldersAndFiles(true);
+                    Console.ReadKey();
+                    break;
                 case ConsoleKey.Backspace:
                     if (Directory.GetParent(path) == null)
                         path = "";
@@ -367,7 +374,7 @@ namespace OS_Practice_1
                 if (path == "")
                     OS_DrawDisks();
                 else
-                    OS_DrawFoldersAndFiles();
+                    OS_DrawFoldersAndFiles(false);
                 cur_position = Control();
             }
             while (true);
