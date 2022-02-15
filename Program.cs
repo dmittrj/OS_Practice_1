@@ -1,16 +1,41 @@
 ﻿using System;
 using System.Collections;
 using System.IO;
+using System.IO.Compression;
+using System.Text.Json;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace OS_Practice_1
 {
+    class Student
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string University { get; set; }
+        public short Course { get; set; }
+
+        public Student(string name, int age, string university, short course)
+        {
+            Name = name;
+            Age = age;
+            University = university;
+            Course = course;
+        }
+
+        public Student()
+        {
+        }
+    }
     class Program
     {
         const int INFOTEXT_HEIGHT = 13;
         enum OS_objs
         {
             OS_folder = 1,
-            OS_file = 2
+            OS_file = 2,
+            OS_archive = 3,
+            OS_archfolder
         }
 
         static int unit = 0;
@@ -116,6 +141,33 @@ namespace OS_Practice_1
             //Console.WriteLine("  f - создать файл");
         }
 
+        static void OS_CreateJson(Student student, FileStream file)
+        {
+            string studentJson = JsonSerializer.Serialize<Student>(student);
+            byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
+            file.Write(array);
+            file.Close();
+        }
+
+        static void OS_CreateXml(Student student, FileStream file)
+        {
+            XDocument xDoc = new XDocument();
+            XElement stud = new XElement("Student");
+            XElement name = new XElement("name", student.Name);
+            XElement age = new XElement("age", student.Age);
+            XElement uni = new XElement("university", student.University);
+            XElement course = new XElement("course", student.Course);
+            stud.Add(name);
+            stud.Add(age);
+            stud.Add(uni); 
+            stud.Add(course);
+            xDoc.Add(stud);
+            xDoc.Save(file);
+            file.Close();
+        }
+
+
+
         static string OS_DrawNewObject(OS_objs t)
         {
             string name;
@@ -136,10 +188,22 @@ namespace OS_Practice_1
                         Console.WriteLine(path);
                         Console.Write("\n  Введите имя файла > ");
                         break;
+                    case OS_objs.OS_archive:
+                        Console.WriteLine("\n\n Создать архив");
+                        Console.WriteLine(path);
+                        Console.Write("\n  Введите имя архива > ");
+                        break;
+                    case OS_objs.OS_archfolder:
+                        Console.WriteLine("\n\n Распаковать архив в директорию");
+                        Console.WriteLine(path);
+                        Console.Write("\n  Введите имя папки (нажмите Enter для распаковки в исходную папку) > ");
+                        break;
                     default:
                         break;
                 }
                 name = Console.ReadLine();
+                //if (t == OS_objs.OS_archive)
+                //    name += ".zip";
                 if (t == OS_objs.OS_folder)
                 {
                     DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
@@ -241,23 +305,167 @@ namespace OS_Practice_1
             }
         }
 
+        static Student Os_EditSer(string name, int age, string university, short course)
+        {
+            int num;
+            do
+            {
+                Console.Clear();
+                Console.WriteLine("\n\n\n  Редактирование файла\n  " + files[choosen_pos - folders.Length]);
+
+                Console.WriteLine("  1. Имя студента > " + name);
+                Console.WriteLine("  2. Возраст студента > " + age.ToString());
+                Console.WriteLine("  3. Университет > " + university);
+                Console.WriteLine("  4. Курс > " + course.ToString());
+                Console.WriteLine("  0 - завершить ");
+                Console.Write("\n  Какой пункт вы хотите изменить? > ");
+                try
+                {
+                    num = Int32.Parse(Console.ReadLine());
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+                switch (num)
+                {
+                    case 0:
+                        return new Student(name, age, university, course);
+                    case 1:
+                        Console.Write("  Введите новое имя студента > ");
+                        name = Console.ReadLine();
+                        break;
+                    case 2:
+                        Console.Write("  Введите новое значение возраста > ");
+                        age = Int32.Parse(Console.ReadLine());
+                        break;
+                    case 3:
+                        Console.Write("  Введите новое название университета > ");
+                        university = Console.ReadLine();
+                        break;
+                    case 4:
+                        Console.Write("  Введите новое значение курса > ");
+                        course = Int16.Parse(Console.ReadLine());
+                        break;
+                }
+            } while (true);
+        }
+
+        static void OS_OpenAsJson()
+        {
+            Console.Clear();
+            Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
+            
+            Student student;
+            using (FileStream fstream = File.OpenRead(files[choosen_pos - folders.Length]))
+            {
+                byte[] array = new byte[fstream.Length];
+                fstream.Read(array, 0, array.Length);
+                string textFromFile = System.Text.Encoding.Default.GetString(array);
+                Console.WriteLine("______\n");
+                try
+                {
+                    student = JsonSerializer.Deserialize<Student>(textFromFile);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Извините, не удалось распаковать файл");
+                    Console.ReadKey();
+                    return;
+                    //throw;
+                }
+                Console.WriteLine("  Файл распакован.\n");
+                Console.WriteLine("      Имя студента > " + student.Name);
+                Console.WriteLine("  Возраст студента > " + student.Age.ToString());
+                Console.WriteLine("       Университет > " + student.University);
+                Console.WriteLine("              Курс > " + student.Course.ToString());
+                Console.WriteLine("______");
+            }
+            Console.WriteLine("\n\n  Что вы хотите делать далее?");
+            Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
+            Console.WriteLine("  r - переписать  c - очистить");
+            ConsoleKey key = Console.ReadKey().Key;
+            switch (key)
+            {
+                case ConsoleKey.Backspace:
+                    return;
+                case ConsoleKey.E:
+                    OS_CreateJson(Os_EditSer(student.Name, student.Age, student.University, student.Course), new FileStream(files[choosen_pos - folders.Length], FileMode.OpenOrCreate));
+                    break;
+            }
+        }
+
+        static void OS_OpenAsXml()
+        {
+            Console.Clear();
+            Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
+
+            Student student = new Student();
+            //using (FileStream fstream = File.OpenRead(files[choosen_pos - folders.Length]))
+            //{
+                //byte[] array = new byte[fstream.Length];
+                //fstream.Read(array, 0, array.Length);
+                //string textFromFile = System.Text.Encoding.Default.GetString(array);
+                Console.WriteLine("______\n");
+                try
+                {
+                    XmlDocument xDoc = new XmlDocument();
+                    xDoc.Load(files[choosen_pos - folders.Length]);
+                    XmlElement xRoot = xDoc.DocumentElement;
+
+                    student.Name = xRoot["name"].InnerText;
+                    student.Age = Int32.Parse(xRoot["age"].InnerText);
+                    student.University = xRoot["university"].InnerText;
+                    student.Course = Int16.Parse(xRoot["course"].InnerText);
+            }
+                catch (Exception)
+                {
+                    Console.WriteLine("Извините, не удалось распаковать файл");
+                    Console.ReadKey();
+                    return;
+                    //throw;
+                }
+                Console.WriteLine("  Файл распакован.\n");
+                Console.WriteLine("      Имя студента > " + student.Name);
+                Console.WriteLine("  Возраст студента > " + student.Age.ToString());
+                Console.WriteLine("       Университет > " + student.University);
+                Console.WriteLine("              Курс > " + student.Course.ToString());
+                Console.WriteLine("______");
+            //}
+            Console.WriteLine("\n\n  Что вы хотите делать далее?");
+            Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
+            Console.WriteLine("  r - переписать  c - очистить");
+            ConsoleKey key = Console.ReadKey().Key;
+            switch (key)
+            {
+                case ConsoleKey.Backspace:
+                    return;
+                case ConsoleKey.E:
+                    OS_CreateXml(Os_EditSer(student.Name, student.Age, student.University, student.Course), new FileStream(files[choosen_pos - folders.Length], FileMode.OpenOrCreate));
+                    break;
+            }
+        }
+
         static void OS_DrawOpenMode()
         {
             Console.Clear();
             Console.WriteLine("\n\n  В каком режиме открыть файл?");
             Console.WriteLine("  " + files[choosen_pos - folders.Length]);
-            Console.WriteLine("\n  s - строка\n  j - JSON\n  x - XML\n  z - архив\n\n  > ");
+            Console.WriteLine("\n  s - строка\n  j - JSON\n  x - XML\n  z - распаковать архив\n\n  > ");
             ConsoleKey key = Console.ReadKey().Key;
             switch (key)
             {
                 case ConsoleKey.J:
+                    OS_OpenAsJson();
                     break;
                 case ConsoleKey.X:
+                    OS_OpenAsXml();
                     break;
                 case ConsoleKey.S:
                     OS_OpenAsString();
                     break;
                 case ConsoleKey.Z:
+                    OS_Unpack(files[choosen_pos - folders.Length]);
                     break;
                 default:
                     break;
@@ -269,6 +477,7 @@ namespace OS_Practice_1
             DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawNewObject(OS_objs.OS_folder));
             directoryInfo.Create();
         }
+
 
         static void OS_DeleteObject()
         {
@@ -300,6 +509,149 @@ namespace OS_Practice_1
             file.Write(array);
             file.Close();
         }
+
+        
+        static void OS_CreateJson()
+        {
+            FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
+            FileStream file = fileInfo.Create();
+            Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
+            string name = Console.ReadLine();
+            Console.Write("  Введите возраст студента > ");
+            int age = Int32.Parse(Console.ReadLine());
+            Console.Write("  Введите название университета > ");
+            string university = Console.ReadLine();
+            Console.Write("  Введите курс, на котором учится студент > ");
+            short course = Int16.Parse(Console.ReadLine());
+            Student student = new Student(name, age, university, course);
+            //byte[] array = System.Text.Encoding.Default.GetBytes(text);
+            //string studentJson = JsonSerializer.Serialize<Student>(student);
+            //byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
+            //file.Write(array);
+            //file.Close();
+            OS_CreateJson(student, file);
+        }
+
+        static void OS_CreateXml()
+        {
+            FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
+            FileStream file = fileInfo.Create();
+            Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
+            string name = Console.ReadLine();
+            Console.Write("  Введите возраст студента > ");
+            int age = Int32.Parse(Console.ReadLine());
+            Console.Write("  Введите название университета > ");
+            string university = Console.ReadLine();
+            Console.Write("  Введите курс, на котором учится студент > ");
+            short course = Int16.Parse(Console.ReadLine());
+            Student student = new Student(name, age, university, course);
+            //byte[] array = System.Text.Encoding.Default.GetBytes(text);
+            //string studentJson = JsonSerializer.Serialize<Student>(student);
+            //byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
+            //file.Write(array);
+            //file.Close();
+            OS_CreateXml(student, file);
+        }
+
+        static void OS_Decompress(string out_file, string in_file)
+        {
+            using (FileStream sourceStream = new FileStream(out_file, FileMode.OpenOrCreate))
+            {
+                using (FileStream targetStream = File.Create(in_file))
+                {
+                    using (GZipStream gZip = new GZipStream(sourceStream, CompressionMode.Decompress))
+                    {
+                        gZip.CopyTo(targetStream);
+                    }
+                }
+            }
+        }
+
+
+        static void OS_Unpack(string zipFile)
+        {
+            string targetFolder = OS_DrawNewObject(OS_objs.OS_file);
+            try
+            {
+                ZipFile.ExtractToDirectory(zipFile, targetFolder);
+            }
+            catch
+            {
+                try
+                {
+                    OS_Decompress(zipFile, targetFolder);
+                } 
+                catch
+                {
+                    Console.WriteLine("Извините, не удалось распаковать архив");
+                    Console.ReadKey();
+                    return;
+                }
+                
+            }
+            Console.WriteLine("  Удалить исходный архив? (y - да/n - нет) > ");
+            ConsoleKey key = Console.ReadKey().Key;
+            switch (key)
+            {
+                case ConsoleKey.Y:
+                    FileInfo fileInfo = new FileInfo(files[choosen_pos - folders.Length]);
+                    fileInfo.Delete();
+                    break;
+                case ConsoleKey.N:
+                default:
+                    break;
+            }
+        }
+
+        static void OS_Compress(string in_file, string out_file)
+        {
+            using (FileStream sourceStream = new FileStream(in_file, FileMode.OpenOrCreate))
+            {
+                using (FileStream targetStream = File.Create(out_file))
+                {
+                    using (GZipStream gZip = new GZipStream(targetStream, CompressionMode.Compress))
+                    {
+                        sourceStream.CopyTo(gZip);
+                    }
+                }
+            }
+        }
+
+        
+        static void OS_CreateZip(OS_objs source, string name_source)
+        {
+            string zipFile = OS_DrawNewObject(OS_objs.OS_archive);
+            string[] ext = name_source.Split('.');
+            if (ext.Length > 1) zipFile += "." + ext[1] + ".zip";
+            switch (source)
+            {
+                case OS_objs.OS_folder:
+                    ZipFile.CreateFromDirectory(name_source, zipFile);
+                    break;
+                case OS_objs.OS_file:
+                    OS_Compress(name_source, zipFile);
+                    break;
+                default:
+                    break;
+            }
+            //FileStream file = fileInfo.Create();
+            //Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
+            //string name = Console.ReadLine();
+            //Console.Write("  Введите возраст студента > ");
+            //int age = Int32.Parse(Console.ReadLine());
+            //Console.Write("  Введите название университета > ");
+            //string university = Console.ReadLine();
+            //Console.Write("  Введите курс, на котором учится студент > ");
+            //short course = Int16.Parse(Console.ReadLine());
+            //Student student = new Student(name, age, university, course);
+            ////byte[] array = System.Text.Encoding.Default.GetBytes(text);
+            ////string studentJson = JsonSerializer.Serialize<Student>(student);
+            ////byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
+            ////file.Write(array);
+            ////file.Close();
+            //OS_CreateXml(student, file);
+        }
+
 
         static void OS_DrawFoldersAndFiles(bool info)
         {
@@ -371,16 +723,20 @@ namespace OS_Practice_1
             else
             {
                 Console.WriteLine("  Управление - стрелками");
-                Console.WriteLine("  Ед. измерения: b, k, m, g, t");
+                //Console.WriteLine("  Ед. измерения: b, k, m, g, t");
                 Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить  i - инфо");
-                Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML  z - архив");
+                Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML");
+                Console.Write("  z - архивировать ");
+                if (choosen_pos < folders.Length) Console.WriteLine("папку");
+                else Console.WriteLine("файл");
+                Console.WriteLine("  q - выйти");
             }
         }
 
-        static int Control()
+        static bool Control()
         {
             ConsoleKey pressed = Console.ReadKey().Key;
-             switch (pressed)
+            switch (pressed)
             {
                 case ConsoleKey.UpArrow:
                     choosen_pos--;
@@ -437,6 +793,23 @@ namespace OS_Practice_1
                     OS_CreateFile();
                     OS_FoldersAndFilesInfo();
                     break;
+                case ConsoleKey.J:
+                    OS_CreateJson();
+                    OS_FoldersAndFilesInfo();
+                    break;
+                case ConsoleKey.X:
+                    OS_CreateXml();
+                    OS_FoldersAndFilesInfo();
+                    break;
+                case ConsoleKey.Z:
+                    if (choosen_pos < folders.Length)
+                        OS_CreateZip(OS_objs.OS_folder, folders[choosen_pos]);
+                    else
+                        OS_CreateZip(OS_objs.OS_file, files[choosen_pos - folders.Length]);
+                    OS_FoldersAndFilesInfo();
+                    break;
+                case ConsoleKey.Q:
+                    return false;
                 case ConsoleKey.Backspace:
                     if (Directory.GetParent(path) == null)
                         path = "";
@@ -468,12 +841,11 @@ namespace OS_Practice_1
                     break;
             }
             if (choosen_pos < 0) choosen_pos = 0;
-            return 1;
+            return true;
         }
 
         static void Main(string[] args)
         {
-            int cur_position = -1;
             OS_DisksInfo();
             do
             {
@@ -481,9 +853,8 @@ namespace OS_Practice_1
                     OS_DrawDisks();
                 else
                     OS_DrawFoldersAndFiles(false);
-                cur_position = Control();
             }
-            while (true);
+            while (Control());
         }
     }
 }
