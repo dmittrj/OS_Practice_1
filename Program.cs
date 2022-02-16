@@ -202,8 +202,6 @@ namespace OS_Practice_1
                         break;
                 }
                 name = Console.ReadLine();
-                //if (t == OS_objs.OS_archive)
-                //    name += ".zip";
                 if (t == OS_objs.OS_folder)
                 {
                     DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
@@ -271,7 +269,6 @@ namespace OS_Practice_1
                     case ConsoleKey.Y:
                         return true;
                     default:
-                        //Console.WriteLine("Повторите ввод.\ny - да/n - нет > ");
                         break;
                 }
             }
@@ -383,7 +380,6 @@ namespace OS_Practice_1
             }
             Console.WriteLine("\n\n  Что вы хотите делать далее?");
             Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
-            Console.WriteLine("  r - переписать  c - очистить");
             ConsoleKey key = Console.ReadKey().Key;
             switch (key)
             {
@@ -401,11 +397,6 @@ namespace OS_Practice_1
             Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
 
             Student student = new Student();
-            //using (FileStream fstream = File.OpenRead(files[choosen_pos - folders.Length]))
-            //{
-                //byte[] array = new byte[fstream.Length];
-                //fstream.Read(array, 0, array.Length);
-                //string textFromFile = System.Text.Encoding.Default.GetString(array);
                 Console.WriteLine("______\n");
                 try
                 {
@@ -423,7 +414,6 @@ namespace OS_Practice_1
                     Console.WriteLine("Извините, не удалось распаковать файл");
                     Console.ReadKey();
                     return;
-                    //throw;
                 }
                 Console.WriteLine("  Файл распакован.\n");
                 Console.WriteLine("      Имя студента > " + student.Name);
@@ -431,7 +421,6 @@ namespace OS_Practice_1
                 Console.WriteLine("       Университет > " + student.University);
                 Console.WriteLine("              Курс > " + student.Course.ToString());
                 Console.WriteLine("______");
-            //}
             Console.WriteLine("\n\n  Что вы хотите делать далее?");
             Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
             Console.WriteLine("  r - переписать  c - очистить");
@@ -524,11 +513,7 @@ namespace OS_Practice_1
             Console.Write("  Введите курс, на котором учится студент > ");
             short course = Int16.Parse(Console.ReadLine());
             Student student = new Student(name, age, university, course);
-            //byte[] array = System.Text.Encoding.Default.GetBytes(text);
-            //string studentJson = JsonSerializer.Serialize<Student>(student);
-            //byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
-            //file.Write(array);
-            //file.Close();
+
             OS_CreateJson(student, file);
         }
 
@@ -545,11 +530,7 @@ namespace OS_Practice_1
             Console.Write("  Введите курс, на котором учится студент > ");
             short course = Int16.Parse(Console.ReadLine());
             Student student = new Student(name, age, university, course);
-            //byte[] array = System.Text.Encoding.Default.GetBytes(text);
-            //string studentJson = JsonSerializer.Serialize<Student>(student);
-            //byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
-            //file.Write(array);
-            //file.Close();
+
             OS_CreateXml(student, file);
         }
 
@@ -659,11 +640,6 @@ namespace OS_Practice_1
             Console.Write("\n\n ");
             Console.WriteLine(path);
             Console.Write("\n  Имя");
-            //Console.Write("Имя"); Gaps(MAX_LENGTH[1], 3);
-            //Console.Write("Размер"); Gaps(MAX_LENGTH[2], 6);
-            //Console.Write("Своб. место"); Gaps(MAX_LENGTH[3], 11);
-            //Console.Write("Ф. система"); Gaps(MAX_LENGTH[4], 10);
-            //Console.Write("Тип диска"); Gaps(MAX_LENGTH[5], 11);
             Console.WriteLine();
             if (folders.Length + files.Length == 0)
             {
@@ -685,7 +661,6 @@ namespace OS_Practice_1
                         else
                             Console.Write("  ");
                         Console.Write(temp.Name);
-                        //Gaps(MAX_LENGTH[0], temp.Name.Length);
                         Console.WriteLine();
                     }
                     else if (i < (folders.Length + files.Length))
@@ -697,8 +672,6 @@ namespace OS_Practice_1
                         else
                             Console.Write("  ");
                         Console.WriteLine(temp.Name + " (файл " + temp.Extension + ")");
-                        //Gaps(MAX_LENGTH[0], temp.Name.Length);
-                        //Console.WriteLine();
                     }
                 }
                 Console.WriteLine("  .... стр " + (cur_page + 1) + " из " + pages + " ....");
