@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
@@ -8,25 +9,61 @@ using System.Xml.Linq;
 
 namespace OS_Practice_1
 {
-    class Student
+    class Train
     {
-        public string Name { get; set; }
-        public int Age { get; set; }
-        public string University { get; set; }
-        public short Course { get; set; }
-
-        public Student(string name, int age, string university, short course)
+        public string FirstStation { get; set; }
+        public DateTime Departure { get; set; }
+        public string LastStation { get; set; }
+        public DateTime Arrival { get; set; }
+        public int TrainNumber { get; set; }
+        public bool WeekdaysOnly { get; set; }
+        public string[] Stations { get; set; }
+        public Train(string firstStation, DateTime departure, string lastStation, DateTime arrival, int trainNumber, bool weekdaysOnly, string[] stations)
         {
-            Name = name;
-            Age = age;
-            University = university;
-            Course = course;
+            FirstStation = firstStation;
+            Departure = departure;
+            LastStation = lastStation;
+            Arrival = arrival;
+            TrainNumber = trainNumber;
+            WeekdaysOnly = weekdaysOnly;
+            Stations = stations;
         }
 
-        public Student()
+        public Train()
         {
+            FirstStation = "Курский вокзал";
+            Departure = DateTime.Parse("10:00");
+            LastStation = "Петушки";
+            Arrival = DateTime.Parse("12:00");
+            TrainNumber = 6928;
+            WeekdaysOnly = false;
+            string[] stations = { "Карачарово", "Чухлинка" };
+            Stations = stations;
+        }
+
+        public override string ToString()
+        {
+            string vs = "";
+            if (Stations.Length > 0)
+                vs = Stations[0];
+            for (int i = 1; i < Stations.Length; i++)
+            {
+                vs += ", " + Stations[i];
+            }
+            return WeekdaysOnly ?
+             "  Электропоезд №" + TrainNumber.ToString() +
+                "\n   " + FirstStation + " -> " +
+                LastStation + "\n   Отправление: " + Departure.ToString("t") +
+                ", прибытие: " + Arrival.ToString("t") + " (будни)\n   Остановки:\n   " + vs
+                :
+            "  Электропоезд №" + TrainNumber.ToString() +
+                "\n   " + FirstStation + " -> " +
+                LastStation + "\n   Отправление: " + Departure.ToString("t") +
+                ", прибытие: " + Arrival.ToString("t") + " (ежедневно)\n   Остановки:\n   " + vs;
         }
     }
+
+
     class Program
     {
         const int INFOTEXT_HEIGHT = 13;
@@ -38,36 +75,64 @@ namespace OS_Practice_1
             OS_archfolder
         }
 
+        enum OS_serialize
+        {
+            OS_json, OS_xml
+        }
+
         static int unit = 0;
-        static string[] units = new string[] {" Б ", " КБ", " МБ", " ГБ", " ТБ"};
+        static readonly string[] units = new string[] { " Б ", " КБ", " МБ", " ГБ", " ТБ" };
+        static readonly char[] forbidden = new char[] { '\\', '/', ':', '*', '?', '\"', '<', '>', '|' };
         static int choosen_pos = 0;
         static int pages = 1;
 
-        static DriveInfo[] drives;
-        static string[] folders;
-        static string[] files;
+        static DriveInfo[] OS_Drives;
+        static string[] OS_Folders;
+        static string[] OS_Files;
 
 
-        static Stack poses = new Stack();
-        static int[] MAX_LENGTH = new int[8];
-        static string path = "";
+        static readonly Stack OS_Positions = new Stack();
+        static readonly int[] MAX_LENGTH = new int[8];
+        static string OS_Current_Path = "";
 
+        /// <summary>
+        /// This function add spaces to make your CUR-letter word MAX-letter
+        /// </summary>
+        /// <param name="max">Length to be reached</param>
+        /// <param name="cur">Length of your word</param>
         static void Gaps(int max, int cur)
         {
             for (int i = 0; i < max - cur + 2; i++)
                 Console.Write(" ");
         }
 
+        /// <summary>
+        /// This function makes your number between MIN and MAX
+        /// </summary>
+        /// <param name="number_to_normal">What number do you want to normalize</param>
+        /// <param name="min">Minimum value of your number</param>
+        /// <param name="max">Maximum value of your number</param>
+        static void OS_Normali(ref int number_to_normal, int min, int max)
+        {
+            if (number_to_normal < min)
+                number_to_normal = min;
+            else if (number_to_normal > max)
+                number_to_normal = max;
+        }
+
+        /// <summary>
+        /// This function gets info about disks that are in your computer
+        /// </summary>
         static void OS_DisksInfo()
         {
-            drives = DriveInfo.GetDrives();
+            OS_Drives = DriveInfo.GetDrives();
             MAX_LENGTH[0] = 3;
             MAX_LENGTH[1] = 3;
             MAX_LENGTH[2] = 6;
             MAX_LENGTH[3] = 11;
             MAX_LENGTH[4] = 10;
             MAX_LENGTH[5] = 9;
-            foreach (DriveInfo item in drives)
+            foreach (DriveInfo item in OS_Drives)
             {
                 if (MAX_LENGTH[0] < item.Name.Length) MAX_LENGTH[0] = item.Name.Length;
                 if (item.IsReady) if (MAX_LENGTH[1] < item.VolumeLabel.ToString().Length)
@@ -82,20 +147,82 @@ namespace OS_Practice_1
                         MAX_LENGTH[5] = item.DriveType.ToString().Length;
             }
         }
-        static void OS_FoldersAndFilesInfo()
+
+        /// <summary>
+        /// This function says whether current item folder or file
+        /// </summary>
+        /// <returns>TRUE if current object is folder, FALSE if it is file</returns>
+        static bool OS_isFolder()
         {
-            folders = Directory.GetDirectories(path);
-            files = Directory.GetFiles(path);
-            //MAX_LENGTH[0] = 3;
-            //MAX_LENGTH[1] = 3;
-            //MAX_LENGTH[2] = 6;
-            //MAX_LENGTH[3] = 11;
-            //MAX_LENGTH[4] = 10;
-            //MAX_LENGTH[5] = 9;
-            pages = (int)Math.Ceiling(((float)(folders.Length + files.Length) / (float)(Console.WindowHeight - INFOTEXT_HEIGHT)));
-            
+            return choosen_pos < OS_Folders.Length;
         }
 
+        /// <summary>
+        /// This function says whether your item folder or file
+        /// </summary>
+        /// <param name="pos">position of your file</param>
+        /// <returns>TRUE if your object is folder, FALSE if it is file</returns>
+        static bool OS_isFolder(int pos)
+        {
+            return pos < OS_Folders.Length;
+        }
+
+        /// <summary>
+        /// Give you size of the file with certain init
+        /// </summary>
+        /// <param name="size">Size of your file in bytes</param>
+        /// <returns>Size of file in current unit</returns>
+        static string OS_GetFileSize(long size)
+        {
+            long size_to_unit = size / (long)Math.Pow(1024, unit);
+            return size_to_unit.ToString() + units[unit];
+        }
+
+        static bool OS_SwitchUnits()
+        {
+            ConsoleKey pressed = Console.ReadKey().Key;
+            switch (pressed)
+            {
+                case ConsoleKey.B:
+                    unit = 0;
+                    OS_DrawFoldersAndFiles(true);
+                    break;
+                case ConsoleKey.K:
+                    unit = 1;
+                    OS_DrawFoldersAndFiles(true);
+                    break;
+                case ConsoleKey.M:
+                    unit = 2;
+                    OS_DrawFoldersAndFiles(true);
+                    break;
+                case ConsoleKey.G:
+                    unit = 3;
+                    OS_DrawFoldersAndFiles(true);
+                    break;
+                case ConsoleKey.T:
+                    unit = 4;
+                    OS_DrawFoldersAndFiles(true);
+                    break;
+                default:
+                    OS_DrawFoldersAndFiles(false);
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Gets info about folders and files into current path
+        /// </summary>
+        static void OS_FoldersAndFilesInfo()
+        {
+            OS_Folders = Directory.GetDirectories(OS_Current_Path);
+            OS_Files = Directory.GetFiles(OS_Current_Path);
+            pages = (int)Math.Ceiling(((float)(OS_Folders.Length + OS_Files.Length) / (float)(Console.WindowHeight - INFOTEXT_HEIGHT)));
+        }
+
+        /// <summary>
+        /// This function print fullscreen navigation-allow table with your disks
+        /// </summary>
         static void OS_DrawDisks()
         {
             Console.Clear();
@@ -107,28 +234,32 @@ namespace OS_Practice_1
             Console.Write("Ф. система"); Gaps(MAX_LENGTH[4], 10);
             Console.Write("Тип диска"); Gaps(MAX_LENGTH[5], 11);
             Console.WriteLine();
-            for (int i = 0; i < drives.Length; i++)
+
+            OS_Normali(ref choosen_pos, 0, OS_Drives.Length - 1);
+
+            for (int i = 0; i < OS_Drives.Length; i++)
             {
-                if (i == (choosen_pos % drives.Length))
+                if (i == choosen_pos)
                     Console.Write("> ");
                 else
                     Console.Write("  ");
-                Console.Write(drives[i].Name);
-                Gaps(MAX_LENGTH[0], drives[i].Name.Length);
-                
-                if (drives[i].IsReady)
+                Console.Write(OS_Drives[i].Name);
+                Gaps(MAX_LENGTH[0], OS_Drives[i].Name.Length);
+
+                if (OS_Drives[i].IsReady)
                 {
-                    Console.Write(drives[i].VolumeLabel);
-                    Gaps(MAX_LENGTH[1], drives[i].VolumeLabel.Length);
-                    Console.Write(((long)(drives[i].TotalSize / Math.Pow(1024, unit))).ToString() + units[unit]);
-                    Gaps(MAX_LENGTH[2], ((long)(drives[i].TotalSize / Math.Pow(1024, unit))).ToString().Length + 3);
-                    Console.Write(((long)(drives[i].TotalFreeSpace / Math.Pow(1024, unit))).ToString() + units[unit]);
-                    Gaps(MAX_LENGTH[3], ((long)(drives[i].TotalFreeSpace / Math.Pow(1024, unit))).ToString().Length + 3);
-                    Console.Write(drives[i].DriveFormat);
-                    Gaps(MAX_LENGTH[4], drives[i].DriveFormat.Length);
-                    Console.Write(drives[i].DriveType);
-                    Gaps(MAX_LENGTH[5], drives[i].DriveType.ToString().Length);
-                } else
+                    Console.Write(OS_Drives[i].VolumeLabel);
+                    Gaps(MAX_LENGTH[1], OS_Drives[i].VolumeLabel.Length);
+                    Console.Write(OS_GetFileSize(OS_Drives[i].TotalSize));
+                    Gaps(MAX_LENGTH[2], OS_GetFileSize(OS_Drives[i].TotalSize).Length);
+                    Console.Write(OS_GetFileSize(OS_Drives[i].TotalFreeSpace));
+                    Gaps(MAX_LENGTH[3], OS_GetFileSize(OS_Drives[i].TotalFreeSpace).Length);
+                    Console.Write(OS_Drives[i].DriveFormat);
+                    Gaps(MAX_LENGTH[4], OS_Drives[i].DriveFormat.Length);
+                    Console.Write(OS_Drives[i].DriveType);
+                    Gaps(MAX_LENGTH[5], OS_Drives[i].DriveType.ToString().Length);
+                }
+                else
                 {
                     Console.Write("устройство не готово");
                 }
@@ -138,36 +269,60 @@ namespace OS_Practice_1
             Console.WriteLine("  Управление - стрелками");
             Console.WriteLine("  Ед. измерения: b, k, m, g, t");
             Console.WriteLine("  u - обновить, Enter - выбрать");
-            //Console.WriteLine("  f - создать файл");
         }
 
-        static void OS_CreateJson(Student student, FileStream file)
+        static void OS_CreateJson(List<Train> trains, FileStream file)
         {
-            string studentJson = JsonSerializer.Serialize<Student>(student);
+            string studentJson = JsonSerializer.Serialize<List<Train>>(trains);
             byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
             file.Write(array);
             file.Close();
         }
 
-        static void OS_CreateXml(Student student, FileStream file)
+        static void OS_CreateXml(List<Train> trains, FileStream file)
         {
             XDocument xDoc = new XDocument();
-            XElement stud = new XElement("Student");
-            XElement name = new XElement("name", student.Name);
-            XElement age = new XElement("age", student.Age);
-            XElement uni = new XElement("university", student.University);
-            XElement course = new XElement("course", student.Course);
-            stud.Add(name);
-            stud.Add(age);
-            stud.Add(uni); 
-            stud.Add(course);
-            xDoc.Add(stud);
+            XElement timetable = new XElement("Trains");
+            int index = 0;
+            foreach (Train item in trains)
+            {
+                XElement train = new XElement("Train_" + index.ToString());
+                XElement firstStation = new XElement("firstStation", item.FirstStation);
+                XElement departure = new XElement("departure", item.Departure);
+                XElement lastStation = new XElement("lastStation", item.LastStation);
+                XElement arrival = new XElement("arrival", item.Arrival);
+                XElement weekdaysOnly = new XElement("weekdaysOnly", item.WeekdaysOnly);
+                XElement trainNumber = new XElement("trainNumber", item.TrainNumber);
+                XElement stations = new XElement("stations");
+                int station_index = 0;
+                foreach (string stat in item.Stations)
+                {
+                    XElement station = new XElement("station_" + station_index.ToString(), stat);
+                    stations.Add(station);
+                    station_index++;
+                }
+
+                index++;
+                train.Add(firstStation);
+                train.Add(departure);
+                train.Add(lastStation);
+                train.Add(arrival);
+                train.Add(weekdaysOnly);
+                train.Add(trainNumber);
+                train.Add(stations);
+                timetable.Add(train);
+            }
+            xDoc.Add(timetable);
             xDoc.Save(file);
             file.Close();
         }
 
 
-
+        /// <summary>
+        /// Draws a dialog screen with creating folder/file interface
+        /// </summary>
+        /// <param name="t">Type of object to be create</param>
+        /// <returns>Name of folder/file or empty string if user refused</returns>
         static string OS_DrawNewObject(OS_objs t)
         {
             string name;
@@ -179,23 +334,23 @@ namespace OS_Practice_1
                 switch (t)
                 {
                     case OS_objs.OS_folder:
-                        Console.WriteLine("\n\n Создать папку в директории");
-                        Console.WriteLine(path);
+                        Console.WriteLine("\n\n  Создать папку в директории");
+                        Console.WriteLine("  " + OS_Current_Path);
                         Console.Write("\n  Введите имя папки > ");
                         break;
                     case OS_objs.OS_file:
-                        Console.WriteLine("\n\n Создать файл в директории");
-                        Console.WriteLine(path);
+                        Console.WriteLine("\n\n  Создать файл в директории");
+                        Console.WriteLine("  " + OS_Current_Path);
                         Console.Write("\n  Введите имя файла > ");
                         break;
                     case OS_objs.OS_archive:
-                        Console.WriteLine("\n\n Создать архив");
-                        Console.WriteLine(path);
+                        Console.WriteLine("\n\n  Создать архив");
+                        Console.WriteLine("  " + OS_Current_Path);
                         Console.Write("\n  Введите имя архива > ");
                         break;
                     case OS_objs.OS_archfolder:
-                        Console.WriteLine("\n\n Распаковать архив в директорию");
-                        Console.WriteLine(path);
+                        Console.WriteLine("\n\n  Распаковать архив в директорию");
+                        Console.WriteLine("  " + OS_Current_Path);
                         Console.Write("\n  Введите имя папки (нажмите Enter для распаковки в исходную папку) > ");
                         break;
                     default:
@@ -204,7 +359,7 @@ namespace OS_Practice_1
                 name = Console.ReadLine();
                 if (t == OS_objs.OS_folder)
                 {
-                    DirectoryInfo directoryInfo = new DirectoryInfo(path + "\\" + name);
+                    DirectoryInfo directoryInfo = new DirectoryInfo(OS_Current_Path + "\\" + name);
                     if (directoryInfo.Exists)
                     {
                         for (int i = 0; i < 22; i++)
@@ -216,12 +371,31 @@ namespace OS_Practice_1
                         Console.WriteLine("Повторить ввод? y - да/n - нет > ");
                         ConsoleKey key = Console.ReadKey().Key;
                         if (key == ConsoleKey.Y) repeating = true;
-                        else repeating = false;
+                        else return "";
                     }
-                } 
+                    else
+                    {
+                        foreach (char letter in forbidden)
+                        {
+                            if (name.Contains(letter))
+                            {
+                                int forbidden_index = name.IndexOf(letter);
+                                for (int i = 0; i < 22 + forbidden_index; i++)
+                                    Console.Write(" ");
+                                Console.Write("~");
+                                Console.WriteLine();
+                                Console.WriteLine("Ошибка: недопустимый символ");
+                                Console.WriteLine("Повторить ввод? y - да/n - нет > ");
+                                ConsoleKey key = Console.ReadKey().Key;
+                                if (key == ConsoleKey.Y) repeating = true;
+                                else return "";
+                            }
+                        }
+                    }
+                }
                 else
                 {
-                    FileInfo directoryInfo = new FileInfo(path + "\\" + name);
+                    FileInfo directoryInfo = new FileInfo(OS_Current_Path + "\\" + name);
                     if (directoryInfo.Exists)
                     {
                         for (int i = 0; i < 22; i++)
@@ -233,14 +407,38 @@ namespace OS_Practice_1
                         Console.WriteLine("Повторить ввод? y - да/n - нет > ");
                         ConsoleKey key = Console.ReadKey().Key;
                         if (key == ConsoleKey.Y) repeating = true;
-                        else repeating = false;
+                        else return "";
+                    }
+                    else
+                    {
+                        foreach (char letter in forbidden)
+                        {
+                            if (name.Contains(letter))
+                            {
+                                int forbidden_index = name.IndexOf(letter);
+                                for (int i = 0; i < 22 + forbidden_index; i++)
+                                    Console.Write(" ");
+                                Console.Write("~");
+                                Console.WriteLine();
+                                Console.WriteLine("Ошибка: недопустимый символ");
+                                Console.WriteLine("Повторить ввод? y - да/n - нет > ");
+                                ConsoleKey key = Console.ReadKey().Key;
+                                if (key == ConsoleKey.Y) repeating = true;
+                                else return "";
+                            }
+                        }
                     }
                 }
             }
             while (repeating);
-            return path + "\\" + name;
+            return OS_Current_Path + "\\" + name;
         }
 
+        /// <summary>
+        /// Asks user whether he really wants to delete folder/file into current path
+        /// </summary>
+        /// <param name="t">Object to be deleted</param>
+        /// <returns>TRUE if user wants to delete folder/file, FALSE if he doesn't</returns>
         static bool OS_DrawDeleteObject(OS_objs t)
         {
             do
@@ -251,12 +449,12 @@ namespace OS_Practice_1
                 {
                     case OS_objs.OS_folder:
                         Console.WriteLine("папку");
-                        Console.WriteLine("  " + folders[choosen_pos]);
+                        Console.WriteLine("  " + OS_Folders[choosen_pos]);
                         Console.Write("\n  Вы действительно хотите удалить эту папку? > ");
                         break;
                     case OS_objs.OS_file:
                         Console.WriteLine("файл");
-                        Console.WriteLine("  " + files[choosen_pos - folders.Length]);
+                        Console.WriteLine("  " + OS_Files[choosen_pos - OS_Folders.Length]);
                         Console.Write("\n  Вы действительно хотите удалить этот файл? > ");
                         break;
                 }
@@ -275,86 +473,34 @@ namespace OS_Practice_1
             while (true);
         }
 
+        /// <summary>
+        /// Opens file into current path as string
+        /// </summary>
         static void OS_OpenAsString()
         {
             Console.Clear();
-            Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
+            Console.WriteLine("\n\n\n  " + OS_Files[choosen_pos - OS_Folders.Length]);
             Console.WriteLine("  Текст файла:\n");
-            using (FileStream fstream = File.OpenRead(files[choosen_pos - folders.Length]))
+            using (FileStream fstream = File.OpenRead(OS_Files[choosen_pos - OS_Folders.Length]))
             {
                 byte[] array = new byte[fstream.Length];
                 fstream.Read(array, 0, array.Length);
                 string textFromFile = System.Text.Encoding.Default.GetString(array);
                 Console.WriteLine("______\n");
                 Console.WriteLine(textFromFile);
-                Console.WriteLine("______");  
             }
-            Console.WriteLine("\n\n  Что вы хотите делать далее?");
-            Console.WriteLine("  Backspace - вернуться к файлам  Ins - дописать в конец");
-            Console.WriteLine("  r - переписать  c - очистить");
-            ConsoleKey key = Console.ReadKey().Key;
-            switch (key)
-            {
-                case ConsoleKey.Backspace:
-                    return;
-                case ConsoleKey.Insert:
-                    break;
-            }
-        }
-
-        static Student Os_EditSer(string name, int age, string university, short course)
-        {
-            int num;
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("\n\n\n  Редактирование файла\n  " + files[choosen_pos - folders.Length]);
-
-                Console.WriteLine("  1. Имя студента > " + name);
-                Console.WriteLine("  2. Возраст студента > " + age.ToString());
-                Console.WriteLine("  3. Университет > " + university);
-                Console.WriteLine("  4. Курс > " + course.ToString());
-                Console.WriteLine("  0 - завершить ");
-                Console.Write("\n  Какой пункт вы хотите изменить? > ");
-                try
-                {
-                    num = Int32.Parse(Console.ReadLine());
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
-                switch (num)
-                {
-                    case 0:
-                        return new Student(name, age, university, course);
-                    case 1:
-                        Console.Write("  Введите новое имя студента > ");
-                        name = Console.ReadLine();
-                        break;
-                    case 2:
-                        Console.Write("  Введите новое значение возраста > ");
-                        age = Int32.Parse(Console.ReadLine());
-                        break;
-                    case 3:
-                        Console.Write("  Введите новое название университета > ");
-                        university = Console.ReadLine();
-                        break;
-                    case 4:
-                        Console.Write("  Введите новое значение курса > ");
-                        course = Int16.Parse(Console.ReadLine());
-                        break;
-                }
-            } while (true);
+            Console.WriteLine("______\n");
+            Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться к файлам");
+            Console.ReadKey();
         }
 
         static void OS_OpenAsJson()
         {
             Console.Clear();
-            Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
-            
-            Student student;
-            using (FileStream fstream = File.OpenRead(files[choosen_pos - folders.Length]))
+            Console.WriteLine("\n\n\n  " + OS_Files[choosen_pos - OS_Folders.Length]);
+
+            List<Train> trains = new List<Train>();
+            using (FileStream fstream = File.OpenRead(OS_Files[choosen_pos - OS_Folders.Length]))
             {
                 byte[] array = new byte[fstream.Length];
                 fstream.Read(array, 0, array.Length);
@@ -362,84 +508,84 @@ namespace OS_Practice_1
                 Console.WriteLine("______\n");
                 try
                 {
-                    student = JsonSerializer.Deserialize<Student>(textFromFile);
+                    trains = JsonSerializer.Deserialize<List<Train>>(textFromFile);
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine("Извините, не удалось распаковать файл");
+                    Console.WriteLine("  Извините, не удалось распаковать файл :(");
+                    Console.WriteLine("  Возможные причины:\n   - Файл не в формате JSON\n   - Файл был изменён извне с нарушением кодировки");
                     Console.ReadKey();
                     return;
-                    //throw;
                 }
                 Console.WriteLine("  Файл распакован.\n");
-                Console.WriteLine("      Имя студента > " + student.Name);
-                Console.WriteLine("  Возраст студента > " + student.Age.ToString());
-                Console.WriteLine("       Университет > " + student.University);
-                Console.WriteLine("              Курс > " + student.Course.ToString());
-                Console.WriteLine("______");
+                foreach (Train train in trains)
+                {
+                    Console.WriteLine(train.ToString());
+                }
+
             }
-            Console.WriteLine("\n\n  Что вы хотите делать далее?");
-            Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
-            ConsoleKey key = Console.ReadKey().Key;
-            switch (key)
-            {
-                case ConsoleKey.Backspace:
-                    return;
-                case ConsoleKey.E:
-                    OS_CreateJson(Os_EditSer(student.Name, student.Age, student.University, student.Course), new FileStream(files[choosen_pos - folders.Length], FileMode.OpenOrCreate));
-                    break;
-            }
+            Console.WriteLine("______\n");
+            Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться к файлам");
+            Console.ReadKey();
         }
 
         static void OS_OpenAsXml()
         {
             Console.Clear();
-            Console.WriteLine("\n\n\n  " + files[choosen_pos - folders.Length]);
+            Console.WriteLine("\n\n\n  " + OS_Files[choosen_pos - OS_Folders.Length]);
 
-            Student student = new Student();
-                Console.WriteLine("______\n");
-                try
+            List<Train> trains = new List<Train>();
+            Console.WriteLine("______\n");
+            try
+            {
+                int index = 0;
+                XmlDocument xDoc = new XmlDocument();
+                xDoc.Load(OS_Files[choosen_pos - OS_Folders.Length]);
+                XmlElement xRoot = xDoc.DocumentElement;
+                while (xRoot["Train_" + index.ToString()] != null)
                 {
-                    XmlDocument xDoc = new XmlDocument();
-                    xDoc.Load(files[choosen_pos - folders.Length]);
-                    XmlElement xRoot = xDoc.DocumentElement;
+                    XmlElement xTimetable = xRoot["Train_" + index++.ToString()];
 
-                    student.Name = xRoot["name"].InnerText;
-                    student.Age = Int32.Parse(xRoot["age"].InnerText);
-                    student.University = xRoot["university"].InnerText;
-                    student.Course = Int16.Parse(xRoot["course"].InnerText);
-            }
-                catch (Exception)
-                {
-                    Console.WriteLine("Извините, не удалось распаковать файл");
-                    Console.ReadKey();
-                    return;
+                    Train train = new Train();
+                    train.FirstStation = xTimetable["firstStation"].InnerText;
+                    train.Departure = DateTime.Parse(xTimetable["departure"].InnerText);
+                    train.LastStation = xTimetable["lastStation"].InnerText;
+                    train.Arrival = DateTime.Parse(xTimetable["arrival"].InnerText);
+                    train.WeekdaysOnly = bool.Parse(xTimetable["weekdaysOnly"].InnerText);
+                    train.TrainNumber = Int32.Parse(xTimetable["trainNumber"].InnerText);
+                    List<string> stations = new List<string>();
+                    int station_index = 0;
+                    XmlElement xStations = xTimetable["stations"];
+                    while (xStations["station_" + station_index.ToString()] != null)
+                    {
+                        stations.Add(xStations["station_" + station_index++.ToString()].InnerText);
+                    }
+                    train.Stations = stations.ToArray();
+                    trains.Add(train);
                 }
                 Console.WriteLine("  Файл распакован.\n");
-                Console.WriteLine("      Имя студента > " + student.Name);
-                Console.WriteLine("  Возраст студента > " + student.Age.ToString());
-                Console.WriteLine("       Университет > " + student.University);
-                Console.WriteLine("              Курс > " + student.Course.ToString());
-                Console.WriteLine("______");
-            Console.WriteLine("\n\n  Что вы хотите делать далее?");
-            Console.WriteLine("  Backspace - вернуться к файлам  e - редактировать");
-            Console.WriteLine("  r - переписать  c - очистить");
-            ConsoleKey key = Console.ReadKey().Key;
-            switch (key)
-            {
-                case ConsoleKey.Backspace:
-                    return;
-                case ConsoleKey.E:
-                    OS_CreateXml(Os_EditSer(student.Name, student.Age, student.University, student.Course), new FileStream(files[choosen_pos - folders.Length], FileMode.OpenOrCreate));
-                    break;
+                foreach (Train train in trains)
+                {
+                    Console.WriteLine(train.ToString());
+                }
             }
+            catch (Exception)
+            {
+                Console.WriteLine("  Извините, не удалось распаковать файл :(");
+                Console.WriteLine("  Возможные причины:\n   - Файл не в формате XML\n   - Файл был изменён извне с нарушением кодировки");
+                Console.ReadKey();
+                return;
+            }
+            Console.WriteLine("______\n");
+            Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться к файлам");
+            Console.ReadKey();
         }
 
         static void OS_DrawOpenMode()
         {
             Console.Clear();
             Console.WriteLine("\n\n  В каком режиме открыть файл?");
-            Console.WriteLine("  " + files[choosen_pos - folders.Length]);
+            Console.WriteLine("  " + OS_Files[choosen_pos - OS_Folders.Length]);
             Console.WriteLine("\n  s - строка\n  j - JSON\n  x - XML\n  z - распаковать архив\n\n  > ");
             ConsoleKey key = Console.ReadKey().Key;
             switch (key)
@@ -454,7 +600,7 @@ namespace OS_Practice_1
                     OS_OpenAsString();
                     break;
                 case ConsoleKey.Z:
-                    OS_Unpack(files[choosen_pos - folders.Length]);
+                    OS_Unpack(OS_Files[choosen_pos - OS_Folders.Length]);
                     break;
                 default:
                     break;
@@ -463,75 +609,157 @@ namespace OS_Practice_1
 
         static void OS_CreateFolder()
         {
-            DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawNewObject(OS_objs.OS_folder));
-            directoryInfo.Create();
+            try
+            {
+                DirectoryInfo directoryInfo = new DirectoryInfo(OS_DrawNewObject(OS_objs.OS_folder));
+                if (directoryInfo.Name != "")
+                    directoryInfo.Create();
+            }
+            catch { }
+
         }
 
 
         static void OS_DeleteObject()
         {
             OS_objs objs;
-            if (choosen_pos < folders.Length) objs = OS_objs.OS_folder;
+            if (OS_isFolder()) objs = OS_objs.OS_folder;
             else objs = OS_objs.OS_file;
             if (OS_DrawDeleteObject(objs))
             {
-                if (objs == OS_objs.OS_folder) {
-                    DirectoryInfo directoryInfo = new DirectoryInfo(folders[choosen_pos]);
+                if (objs == OS_objs.OS_folder)
+                {
+                    DirectoryInfo directoryInfo = new DirectoryInfo(OS_Folders[choosen_pos]);
                     directoryInfo.Delete(true);
-                } 
+                }
                 else
                 {
-                    FileInfo fileInfo = new FileInfo(files[choosen_pos - folders.Length]);
+                    FileInfo fileInfo = new FileInfo(OS_Files[choosen_pos - OS_Folders.Length]);
                     fileInfo.Delete();
                 }
             }
-            
+
         }
 
         static void OS_CreateFile()
         {
-            FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
-            FileStream file = fileInfo.Create();
-            Console.Write("  Введите текст файла > ");
-            string text = Console.ReadLine();
-            byte[] array = System.Text.Encoding.Default.GetBytes(text);
-            file.Write(array);
-            file.Close();
+            try
+            {
+                FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
+                if (fileInfo.Name == "") return;
+                FileStream file = fileInfo.Create();
+                Console.Write("  Введите текст файла > ");
+                string text = Console.ReadLine();
+                byte[] array = System.Text.Encoding.Default.GetBytes(text);
+                file.Write(array);
+                file.Close();
+            }
+            catch { }
+
         }
 
-        
-        static void OS_CreateJson()
+        /// <summary>
+        /// Create Json-file with user's data
+        /// </summary>
+        static void OS_CreateSerialize(OS_serialize t)
         {
-            FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
-            FileStream file = fileInfo.Create();
-            Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
-            string name = Console.ReadLine();
-            Console.Write("  Введите возраст студента > ");
-            int age = Int32.Parse(Console.ReadLine());
-            Console.Write("  Введите название университета > ");
-            string university = Console.ReadLine();
-            Console.Write("  Введите курс, на котором учится студент > ");
-            short course = Int16.Parse(Console.ReadLine());
-            Student student = new Student(name, age, university, course);
+            List<Train> trains = new List<Train>();
+            try
+            {
+                FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
+                FileStream file = fileInfo.Create();
+                do
+                {
+                    Console.Clear();
+                    Console.WriteLine("\n\n\n  В этом режиме вы можете создать объект с расписанием пригородных поездов");
+                    Console.WriteLine("  Сейчас поездов: " + trains.Count.ToString());
+                    Console.Write("  Создать новый поезд? (y - да/n - нет) > ");
+                    ConsoleKey key = Console.ReadKey().Key;
+                    if (key == ConsoleKey.N) break;
+                    Console.Write("\n  Введите станцию отправления > ");
+                    string firstStation = Console.ReadLine();
+                    Console.Write("  Введите время отправления (HH:MM) > ");
+                m1:
+                    DateTime departure;
+                    try
+                    {
+                        departure = DateTime.Parse(Console.ReadLine());
+                    }
+                    catch
+                    {
+                        Console.Write("  Введите время отправления (HH:MM) > ");
+                        goto m1;
+                    }
+                    Console.Write("  Введите станцию назначения > ");
+                    string lastStation = Console.ReadLine();
+                    Console.Write("  Введите время прибытия (HH:MM) > ");
+                m2:
+                    DateTime arrival;
+                    try
+                    {
+                        arrival = DateTime.Parse(Console.ReadLine());
+                    }
+                    catch
+                    {
+                        Console.Write("  Введите время прибытия (HH:MM) > ");
+                        goto m2;
+                    }
+                    Console.Write("  Введите номер поезда > ");
+                m3:
+                    int trainNumber;
+                    try
+                    {
+                        trainNumber = Int32.Parse(Console.ReadLine());
+                    }
+                    catch
+                    {
+                        Console.Write("  Введите номер поезда > ");
+                        goto m3;
+                    }
+                m4:
+                    Console.Write("  Данный поезд ходит только по будням? (y - да/n - нет) > ");
+                    bool weekdaysOnly;
+                    ConsoleKey wdo = Console.ReadKey().Key;
+                    switch (wdo)
+                    {
+                        case ConsoleKey.Y:
+                            weekdaysOnly = true;
+                            break;
+                        case ConsoleKey.N:
+                            weekdaysOnly = false;
+                            break;
+                        default:
+                            goto m4;
+                    }
+                    Console.WriteLine("\n  Вводите станции, разделяя их переносом строки [Enter], /end для выхода");
+                    List<string> stations = new List<string>();
+                    do
+                    {
+                        Console.Write("  [" + (stations.Count + 1).ToString() + "]: ");
+                        stations.Add(Console.ReadLine());
+                        if (stations[^1] == "/end")
+                        {
+                            stations.RemoveAt(stations.Count - 1);
+                            break;
+                        }
+                    } while (true);
+                    string[] st = stations.ToArray();
+                    trains.Add(new Train(firstStation, departure, lastStation, arrival, trainNumber, weekdaysOnly, st));
+                } while (true);
+                switch (t)
+                {
+                    case OS_serialize.OS_json:
+                        OS_CreateJson(trains, file);
+                        break;
+                    case OS_serialize.OS_xml:
+                        OS_CreateXml(trains, file);
+                        break;
+                    default:
+                        break;
+                }
 
-            OS_CreateJson(student, file);
-        }
-
-        static void OS_CreateXml()
-        {
-            FileInfo fileInfo = new FileInfo(OS_DrawNewObject(OS_objs.OS_file));
-            FileStream file = fileInfo.Create();
-            Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
-            string name = Console.ReadLine();
-            Console.Write("  Введите возраст студента > ");
-            int age = Int32.Parse(Console.ReadLine());
-            Console.Write("  Введите название университета > ");
-            string university = Console.ReadLine();
-            Console.Write("  Введите курс, на котором учится студент > ");
-            short course = Int16.Parse(Console.ReadLine());
-            Student student = new Student(name, age, university, course);
-
-            OS_CreateXml(student, file);
+            }
+            catch { }
         }
 
         static void OS_Decompress(string out_file, string in_file)
@@ -561,21 +789,22 @@ namespace OS_Practice_1
                 try
                 {
                     OS_Decompress(zipFile, targetFolder);
-                } 
+                }
                 catch
                 {
-                    Console.WriteLine("Извините, не удалось распаковать архив");
+                    Console.WriteLine("  Извините, не удалось распаковать архив :(");
+                    Console.WriteLine("  Возможные причины:\n   - Файл не является архивом\n   - Файл был изменён извне\n   - Файл архивирован сторонним архиватором");
                     Console.ReadKey();
                     return;
                 }
-                
+
             }
             Console.WriteLine("  Удалить исходный архив? (y - да/n - нет) > ");
             ConsoleKey key = Console.ReadKey().Key;
             switch (key)
             {
                 case ConsoleKey.Y:
-                    FileInfo fileInfo = new FileInfo(files[choosen_pos - folders.Length]);
+                    FileInfo fileInfo = new FileInfo(OS_Files[choosen_pos - OS_Folders.Length]);
                     fileInfo.Delete();
                     break;
                 case ConsoleKey.N:
@@ -598,7 +827,7 @@ namespace OS_Practice_1
             }
         }
 
-        
+
         static void OS_CreateZip(OS_objs source, string name_source)
         {
             string zipFile = OS_DrawNewObject(OS_objs.OS_archive);
@@ -615,97 +844,102 @@ namespace OS_Practice_1
                 default:
                     break;
             }
-            //FileStream file = fileInfo.Create();
-            //Console.Write("  В этом режиме вы можете создать объект студента, указав его данные\n\n  Введите имя студента > ");
-            //string name = Console.ReadLine();
-            //Console.Write("  Введите возраст студента > ");
-            //int age = Int32.Parse(Console.ReadLine());
-            //Console.Write("  Введите название университета > ");
-            //string university = Console.ReadLine();
-            //Console.Write("  Введите курс, на котором учится студент > ");
-            //short course = Int16.Parse(Console.ReadLine());
-            //Student student = new Student(name, age, university, course);
-            ////byte[] array = System.Text.Encoding.Default.GetBytes(text);
-            ////string studentJson = JsonSerializer.Serialize<Student>(student);
-            ////byte[] array = System.Text.Encoding.Default.GetBytes(studentJson);
-            ////file.Write(array);
-            ////file.Close();
-            //OS_CreateXml(student, file);
         }
 
-
+        /// <summary>
+        /// This function print fullscreen navigation-allow table with your folders and files
+        /// </summary>
+        /// <param name="info">TRUE if you want to see info about selected folder or file in the footer</param>
         static void OS_DrawFoldersAndFiles(bool info)
         {
             Console.Clear();
             Console.Write("\n\n ");
-            Console.WriteLine(path);
+            Console.WriteLine(OS_Current_Path);
             Console.Write("\n  Имя");
             Console.WriteLine();
-            if (folders.Length + files.Length == 0)
+            pages = (int)Math.Ceiling(((float)(OS_Folders.Length + OS_Files.Length) / (float)(Console.WindowHeight - INFOTEXT_HEIGHT)));
+            if (OS_Folders.Length + OS_Files.Length == 0)
             {
-                Console.WriteLine("  Эта папка пуста");
+                Console.WriteLine("   Эта папка пуста");
             }
             else
             {
-                choosen_pos %= (folders.Length + files.Length);
-                if (choosen_pos < 0) choosen_pos = 0;
+                OS_Normali(ref choosen_pos, 0, OS_Folders.Length + OS_Files.Length - 1);
                 int cur_page = choosen_pos / (Console.WindowHeight - INFOTEXT_HEIGHT);
                 for (int i = cur_page * (Console.WindowHeight - INFOTEXT_HEIGHT); i < (cur_page + 1) * (Console.WindowHeight - INFOTEXT_HEIGHT); i++)
                 {
-                    if (i < folders.Length)
-                    {
-                        DirectoryInfo temp = new DirectoryInfo(folders[i]);
 
-                        if (i == (choosen_pos % (folders.Length + files.Length)))
+                    if (OS_isFolder(i))
+                    {
+                        DirectoryInfo temp = new DirectoryInfo(OS_Folders[i]);
+                        if (i == choosen_pos)
                             Console.Write("> ");
                         else
                             Console.Write("  ");
                         Console.Write(temp.Name);
                         Console.WriteLine();
-                    }
-                    else if (i < (folders.Length + files.Length))
-                    {
-                        FileInfo temp = new FileInfo(files[i - folders.Length]);
 
-                        if (i == (choosen_pos % (folders.Length + files.Length)))
+                    }
+                    else if (i < OS_Folders.Length + OS_Files.Length)
+                    {
+                        FileInfo temp = new FileInfo(OS_Files[i - OS_Folders.Length]);
+                        if (i == choosen_pos)
                             Console.Write("> ");
                         else
                             Console.Write("  ");
-                        Console.WriteLine(temp.Name + " (файл " + temp.Extension + ")");
+                        if (temp.Extension.Length > 0)
+                            Console.WriteLine(temp.Name + " (файл " + temp.Extension[1..].ToUpper() + ")");
+                        else
+                            Console.WriteLine(temp.Name + " (файл)");
+
                     }
                 }
-                Console.WriteLine("  .... стр " + (cur_page + 1) + " из " + pages + " ....");
+                if (pages > 1)
+                    Console.WriteLine("  ..... стр " + (cur_page + 1) + " из " + pages + " .....");
             }
-            Console.WriteLine("  ______________");
+            Console.WriteLine("  ________________");
             if (info)
             {
-                if (choosen_pos < folders.Length)
+                do
                 {
-                    DirectoryInfo temp = new DirectoryInfo(folders[choosen_pos]);
-                    //Console.WriteLine("  Размер: " + temp.Attributes + " байт");
-                    Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
-                    Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться");
-                } else
-                {
-                    FileInfo temp = new FileInfo(files[choosen_pos - folders.Length]);
-                    Console.WriteLine("  Размер: " + temp.Length + " байт");
-                    Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
+                    if (OS_isFolder())
+                    {
+                        DirectoryInfo temp = new DirectoryInfo(OS_Folders[choosen_pos]);
+                        Console.WriteLine("  " + temp.Name + ". Тип: папка с файлами");
+                        Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
+                        Console.WriteLine("  Посл. доступ: " + temp.LastAccessTime.ToString("g"));
+                    }
+                    else
+                    {
+                        FileInfo temp = new FileInfo(OS_Files[choosen_pos - OS_Folders.Length]);
+                        if (temp.Extension.Length > 0)
+                            Console.WriteLine("  " + temp.Name + ". Тип: файл \"" + temp.Extension[1..].ToUpper() + "\"");
+                        else
+                            Console.WriteLine("  " + temp.Name + ". Тип: файл");
+                        Console.WriteLine("  Размер: " + OS_GetFileSize(temp.Length));
+                        Console.WriteLine("  Создан: " + temp.CreationTime.ToString("g") + ", посл. изменение: " + temp.LastWriteTime.ToString("g"));
+                        Console.WriteLine("  Посл. доступ: " + temp.LastAccessTime.ToString("g"));
+                    }
                     Console.WriteLine("  Нажмите любую клавишу, чтобы вернуться");
                 }
+                while (OS_SwitchUnits());
             }
             else
             {
                 Console.WriteLine("  Управление - стрелками");
-                //Console.WriteLine("  Ед. измерения: b, k, m, g, t");
                 Console.WriteLine("  u - обновить  Enter - выбрать  Del - удалить  i - инфо");
                 Console.WriteLine("  создать.. d - папку  f - файл  j - JSON  x - XML");
                 Console.Write("  z - архивировать ");
-                if (choosen_pos < folders.Length) Console.WriteLine("папку");
+                if (OS_isFolder()) Console.WriteLine("папку");
                 else Console.WriteLine("файл");
-                Console.WriteLine("  q - выйти");
+                Console.WriteLine("  Backspace - назад  q - выйти");
             }
         }
 
+        /// <summary>
+        /// Request key pressing to do certain action
+        /// </summary>
+        /// <returns>TRUE if user doesn't want to exit</returns>
         static bool Control()
         {
             ConsoleKey pressed = Console.ReadKey().Key;
@@ -719,11 +953,9 @@ namespace OS_Practice_1
                     break;
                 case ConsoleKey.RightArrow:
                     choosen_pos += (Console.WindowHeight - 13);
-                    if (choosen_pos >= folders.Length + files.Length) choosen_pos = folders.Length + files.Length - 1;
                     break;
                 case ConsoleKey.LeftArrow:
                     choosen_pos -= (Console.WindowHeight - 13);
-                    if (choosen_pos < 0) choosen_pos = 0;
                     break;
                 case ConsoleKey.B:
                     unit = 0;
@@ -746,74 +978,89 @@ namespace OS_Practice_1
                     OS_DisksInfo();
                     break;
                 case ConsoleKey.U:
-                    OS_DisksInfo();
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path == "")
+                        OS_DisksInfo();
+                    else
+                        OS_FoldersAndFilesInfo();
                     break;
                 case ConsoleKey.D:
-                    OS_CreateFolder();
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path != "")
+                    {
+                        OS_CreateFolder();
+                        OS_FoldersAndFilesInfo();
+                    }
                     break;
                 case ConsoleKey.Delete:
-                    OS_DeleteObject();
-                    choosen_pos = 0;
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path != "")
+                    {
+                        OS_DeleteObject();
+                        choosen_pos = 0;
+                        OS_FoldersAndFilesInfo();
+                    }
                     break;
                 case ConsoleKey.I:
-                    OS_DrawFoldersAndFiles(true);
-                    Console.ReadKey();
+                    if (OS_Current_Path != "")
+                        OS_DrawFoldersAndFiles(true);
                     break;
                 case ConsoleKey.F:
-                    OS_CreateFile();
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path != "")
+                    {
+                        OS_CreateFile();
+                        OS_FoldersAndFilesInfo();
+                    }
                     break;
                 case ConsoleKey.J:
-                    OS_CreateJson();
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path != "")
+                    {
+                        OS_CreateSerialize(OS_serialize.OS_json);
+                        OS_FoldersAndFilesInfo();
+                    }
                     break;
                 case ConsoleKey.X:
-                    OS_CreateXml();
-                    OS_FoldersAndFilesInfo();
+                    if (OS_Current_Path != "")
+                    {
+                        OS_CreateSerialize(OS_serialize.OS_xml);
+                        OS_FoldersAndFilesInfo();
+                    }
                     break;
                 case ConsoleKey.Z:
-                    if (choosen_pos < folders.Length)
-                        OS_CreateZip(OS_objs.OS_folder, folders[choosen_pos]);
+                    if (OS_isFolder())
+                        OS_CreateZip(OS_objs.OS_folder, OS_Folders[choosen_pos]);
                     else
-                        OS_CreateZip(OS_objs.OS_file, files[choosen_pos - folders.Length]);
+                        OS_CreateZip(OS_objs.OS_file, OS_Files[choosen_pos - OS_Folders.Length]);
                     OS_FoldersAndFilesInfo();
                     break;
                 case ConsoleKey.Q:
                     return false;
                 case ConsoleKey.Backspace:
-                    if (Directory.GetParent(path) == null)
-                        path = "";
+                    if (Directory.GetParent(OS_Current_Path) == null)
+                        OS_Current_Path = "";
                     else
-                        path = Directory.GetParent(path).ToString();
-                    if (path == "")
+                        OS_Current_Path = Directory.GetParent(OS_Current_Path).ToString();
+                    if (OS_Current_Path == "")
                         OS_DisksInfo();
                     else
                         OS_FoldersAndFilesInfo();
-                    choosen_pos = (int)poses.Pop();
+                    choosen_pos = (int)OS_Positions.Pop();
                     break;
                 case ConsoleKey.Enter:
-                    if (path == "")
+                    if (OS_Current_Path == "")
                     {
-                        path = drives[choosen_pos].Name;
-                        poses.Push(choosen_pos);
+                        OS_Current_Path = OS_Drives[choosen_pos].Name;
+                        OS_Positions.Push(choosen_pos);
                         choosen_pos = 0;
                     }
-                    else if (choosen_pos < folders.Length)
+                    else if (OS_isFolder())
                     {
-                        path = folders[choosen_pos];
-                        poses.Push(choosen_pos);
+                        OS_Current_Path = OS_Folders[choosen_pos];
+                        OS_Positions.Push(choosen_pos);
                         choosen_pos = 0;
                     }
                     else
                         OS_DrawOpenMode();
                     OS_FoldersAndFilesInfo();
-                    //OS_DrawInside();
                     break;
             }
-            if (choosen_pos < 0) choosen_pos = 0;
             return true;
         }
 
@@ -822,7 +1069,7 @@ namespace OS_Practice_1
             OS_DisksInfo();
             do
             {
-                if (path == "")
+                if (OS_Current_Path == "")
                     OS_DrawDisks();
                 else
                     OS_DrawFoldersAndFiles(false);
