@@ -52,14 +52,14 @@ namespace OS_Practice_1
             }
             return WeekdaysOnly ?
              "  Электропоезд №" + TrainNumber.ToString() +
-                "\n   " + FirstStation + " -> " +
-                LastStation + "\n   Отправление: " + Departure.ToString("t") +
-                ", прибытие: " + Arrival.ToString("t") + " (будни)\n   Остановки:\n   " + vs
+                "\n    " + FirstStation + " -> " +
+                LastStation + "\n    Отправление: " + Departure.ToString("t") +
+                ", прибытие: " + Arrival.ToString("t") + " (будни)\n    Остановки:\n    " + vs
                 :
             "  Электропоезд №" + TrainNumber.ToString() +
-                "\n   " + FirstStation + " -> " +
-                LastStation + "\n   Отправление: " + Departure.ToString("t") +
-                ", прибытие: " + Arrival.ToString("t") + " (ежедневно)\n   Остановки:\n   " + vs;
+                "\n    " + FirstStation + " -> " +
+                LastStation + "\n    Отправление: " + Departure.ToString("t") +
+                ", прибытие: " + Arrival.ToString("t") + " (ежедневно)\n    Остановки:\n    " + vs;
         }
     }
 
