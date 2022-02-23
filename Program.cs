@@ -218,6 +218,7 @@ namespace OS_Practice_1
             OS_Folders = Directory.GetDirectories(OS_Current_Path);
             OS_Files = Directory.GetFiles(OS_Current_Path);
             pages = (int)Math.Ceiling(((float)(OS_Folders.Length + OS_Files.Length) / (float)(Console.WindowHeight - INFOTEXT_HEIGHT)));
+
         }
 
         /// <summary>
@@ -1033,6 +1034,7 @@ namespace OS_Practice_1
                 case ConsoleKey.Q:
                     return false;
                 case ConsoleKey.Backspace:
+                    if (OS_Current_Path == "") return true;
                     if (Directory.GetParent(OS_Current_Path) == null)
                         OS_Current_Path = "";
                     else
@@ -1046,6 +1048,7 @@ namespace OS_Practice_1
                 case ConsoleKey.Enter:
                     if (OS_Current_Path == "")
                     {
+                        if (!OS_Drives[choosen_pos].IsReady) return true;
                         OS_Current_Path = OS_Drives[choosen_pos].Name;
                         OS_Positions.Push(choosen_pos);
                         choosen_pos = 0;
